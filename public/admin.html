@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>辩题征集 · 管理后台</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f5f9; color: #222; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; }
+  .card { background: #fff; border-radius: 14px; padding: 18px 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
+  input { width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 11px 12px; font-size: 15px; }
+  .btn { border: none; border-radius: 10px; padding: 11px 18px; font-size: 15px; font-weight: 600; color: #fff; background: #2b5cff; cursor: pointer; margin-top: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+  .row:last-child { border: none; }
+  .info { flex: 1; } .info .t { font-weight: 600; font-size: 14px; }
+  .info .m { font-size: 12px; color: #999; margin-top: 3px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .b-pending { background: #fff4e0; color: #c77d00; } .b-approved { background: #e6f7ee; color: #0d8a4d; } .b-rejected { background: #fdecec; color: #d33; }
+  .mini { border: 1px solid #ddd; background: #fff; border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  .mini.ok { border-color: #0d8a4d; color: #0d8a4d; } .mini.no { border-color: #d33; color: #d33; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab { border: 1px solid #ddd; background: #fff; border-radius: 20px; padding: 7px 18px; font-size: 14px; cursor: pointer; }
+  .tab.on { background: #2b5cff; color: #fff; border-color: #2b5cff; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>辩题征集 · 管理后台</h1>
+  <div class="card" id="loginCard">
+    <input type="password" id="pwd" placeholder="请输入管理口令">
+    <button class="btn" id="loginBtn">进入后台</button>
+  </div>
+  <div id="main" class="hidden">
+    <div class="tabs">
+      <button class="tab on" data-t="pending">待审核</button>
+      <button class="tab" data-t="all">全部</button>
+    </div>
+    <div class="card"><div id="list"></div></div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+let tab = 'pending';
+const headers = () => ({ 'x-admin-password': sessionStorage.getItem('apwd') || '' });
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+async function load() {
+  const r = await fetch(tab === 'pending' ? '/api/admin/pending' : '/api/admin/all', { headers: headers() });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || '加载失败'); return; }
+  const box = $('list'); box.innerHTML = '';
+  if (!d.topics.length) { box.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">暂无</div>'; return; }
+  d.topics.forEach(t => {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<div class="info"><div class="t">${esc(t.title)}</div>
+      <div class="m">投稿人：${esc(t.name)} · ${t.created_at} · <span class="badge b-${t.status}">${t.status}</span>${t.votes !== undefined ? ' · ' + t.votes + '票' : ''}</div></div>`;
+    if (t.status === 'pending') {
+      const ok = document.createElement('button'); ok.className = 'mini ok'; ok.textContent = '通过';
+      ok.onclick = () => review(t.id, 'approve');
+      const no = document.createElement('button'); no.className = 'mini no'; no.textContent = '驳回';
+      no.onclick = () => review(t.id, 'reject');
+      div.appendChild(ok); div.appendChild(no);
+    }
+    box.appendChild(div);
+  });
+}
+async function review(id, act) {
+  const r = await fetch(`/api/admin/topics/${id}/${act}`, { method: 'POST', headers: headers() });
+  if (!r.ok) { alert('操作失败'); return; }
+  load();
+}
+$('loginBtn').onclick = async () => {
+  sessionStorage.setItem('apwd', $('pwd').value);
+  const r = await fetch('/api/admin/pending', { headers: headers() });
+  if (!r.ok) { alert('口令错误'); return; }
+  $('loginCard').classList.add('hidden'); $('main').classList.remove('hidden'); load();
+};
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); tab = b.dataset.t; load();
+});
+</script>
+</body>
+</html>
