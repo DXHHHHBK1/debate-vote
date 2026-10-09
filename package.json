@@ -1,0 +1,1 @@
+{"description":"大学生辩论赛辩题征集投票","engines":{"node":">=22"},"name":"debate-vote","scripts":{"start":"node server.js"},"type":"module","version":"1.0.0"}
